@@ -21,6 +21,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import javax.swing.text.html.Option;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -120,6 +121,21 @@ public class EmployeeServiceTest {
         assertThat(employeeList).isEmpty();
         assertThat(employeeList.size()).isEqualTo(0);
 
+    }
+
+    // JUnit test for getEmployeeById method
+    @DisplayName("JUnit test for getEmployeeById method")
+    @Test
+    public void given_when_then(){
+
+        //given - precondition or setup
+        given(employeeRepository.findById(1L)).willReturn(Optional.of(employee));
+
+        //when - action or the behaviour that we are going test
+        Employee savedEmployee = employeeService.getEmployeeById(1L).get();
+
+        //then - verify the output
+        assertThat(savedEmployee).isNotNull();
     }
 
 }
