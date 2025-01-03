@@ -1,37 +1,41 @@
-package com.juandlr.spring_boot_testing.controller;
-
+package com.juandlr.spring_boot_testing.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.juandlr.spring_boot_testing.entity.Employee;
-import com.juandlr.spring_boot_testing.service.EmployeeService;
+import com.juandlr.spring_boot_testing.repository.EmployeeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static org.hamcrest.CoreMatchers.*;
+
+import static org.hamcrest.CoreMatchers.is;
+
+import static org.mockito.BDDMockito.willDoNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.mockito.BDDMockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest
-public class EmployeeControllerTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
+public class EmployeeControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
-    private EmployeeService employeeService;
+    @Autowired
+    private EmployeeRepository employeeRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -40,31 +44,30 @@ public class EmployeeControllerTest {
 
     @BeforeEach
     void setUp() {
+        employeeRepository.deleteAll();
         employee1 = Employee.builder()
-                .id(1L)
                 .firstName("Juan")
                 .lastName("de la Rosa")
                 .email("juan@example.com")
                 .build();
 
         employee2 = Employee.builder()
-                .id(2L)
                 .firstName("Rodrigo")
                 .lastName("Sarabia")
                 .email("rodrigo@example.com")
                 .build();
     }
 
-    // JUnit test for create employee  REST API
-    @DisplayName("JUnit test for create employee REST API")
+    // JUnit integration test for create employee  REST API
+    @DisplayName("JUnit integration test for create employee  REST API")
     @Test
     public void givenEmployeeObject_whenCreateEmployee_thenReturnSavedEmployee() throws Exception {
 
-        //given - precondition or setup
-        given(employeeService.saveEmployee(ArgumentMatchers.any(Employee.class))).willAnswer((invocation) -> invocation.getArgument(0));
+        //given - precondition or setup, we use the setup method
 
         //when - action or the behaviour that we are going test
-        ResultActions response = mockMvc.perform(post("/api/employees").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(employee1)));
+        ResultActions response = mockMvc.perform(post("/api/employees")
+                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(employee1)));
 
         //then - verify the output
         response.andDo(print())
@@ -74,8 +77,8 @@ public class EmployeeControllerTest {
                 .andExpect(jsonPath("$.email", is(employee1.getEmail())));
     }
 
-    // JUnit test for get all employees REST API
-    @DisplayName("JUnit test for get all employees REST API")
+    // JUnit integration test for get all employees REST API
+    @DisplayName("JUnit integration test for get all employees REST API")
     @Test
     public void givenEmployeeList_whenGetAllEmployees_thenReturnEmployeeList() throws Exception {
 
@@ -83,7 +86,7 @@ public class EmployeeControllerTest {
         List<Employee> employeeList = new ArrayList<>();
         employeeList.add(employee1);
         employeeList.add(employee2);
-        given(employeeService.getAllEmployees()).willReturn(employeeList);
+        employeeRepository.saveAll(employeeList);
 
         //when - action or the behaviour that we are going test
         ResultActions response = mockMvc.perform(get("/api/employees"));
@@ -93,13 +96,13 @@ public class EmployeeControllerTest {
     }
 
     // positive scenario - valid employee id
-    // JUnit test for get employee REST API
-    @DisplayName("JUnit test for get employee REST API")
+    // JUnit integration test for get employee REST API
+    @DisplayName("JUnit integration test for get employee REST API - positive scenario")
     @Test
     public void givenEmployeeId_whenGetEmployeeById_thenReturnEmployeeObject() throws Exception {
 
         //given - precondition or setup
-        given(employeeService.getEmployeeById(employee1.getId())).willReturn(Optional.of(employee1));
+        employeeRepository.save(employee1);
 
         //when - action or the behaviour that we are going test
         ResultActions response = mockMvc.perform(get("/api/employees/{id}", employee1.getId()));
@@ -113,14 +116,13 @@ public class EmployeeControllerTest {
     }
 
     // negative scenario - invalid employee id
-    // JUnit test for get employee by id REST API
-    @DisplayName("JUnit test for get employee by id REST API")
+    // JUnit integration test for get employee by id REST API
+    @DisplayName("JUnit integration test for get employee by id REST API - negative scenario")
     @Test
     public void givenInvalidEmployeeId_whenGetEmployeeById_thenReturnEmpty() throws Exception {
 
         //given - precondition or setup
         long invalidId = 5L;
-        given(employeeService.getEmployeeById(invalidId)).willReturn(Optional.empty());
 
         //when - action or the behaviour that we are going test
         ResultActions response = mockMvc.perform(get("/api/employees/{id}", invalidId));
@@ -130,33 +132,32 @@ public class EmployeeControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    // JUnit test for update employee REST API - positive scenario
-    @DisplayName("JUnit test for update employee REST API - positive scenario")
+    // JUnit integration test for update employee REST API - positive scenario
+    @DisplayName("JUnit integration test for update employee REST API - positive scenario")
     @Test
     public void givenEmployeeObject_whenUpdateEmployee_thenUpdatedEmployee() throws Exception {
 
         //given - precondition or setup
+        employeeRepository.save(employee1);
         Employee updatedEmployee = Employee.builder().firstName("John").lastName("de la Rosa").email("john@example.com").build();
-        given(employeeService.getEmployeeById(1L)).willReturn(Optional.of(employee1));
-        given(employeeService.updateEmployee(ArgumentMatchers.any(Employee.class))).willAnswer((invocation) -> invocation.getArgument(0));
 
         //when - action or the behaviour that we are going test
-        ResultActions response = mockMvc.perform(put("/api/employees/{id}", 1L)
+        ResultActions response = mockMvc.perform(put("/api/employees/{id}", employee1.getId())
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(updatedEmployee)));
 
         //then - verify the output
         response.andDo(print()).andExpect(status().isOk())
-                .andExpect(jsonPath("$.firstName", is("John"))).andExpect(jsonPath("$.email", is("john@example.com")));
+                .andExpect(jsonPath("$.firstName", is(updatedEmployee.getFirstName())))
+                .andExpect(jsonPath("$.email", is(updatedEmployee.getEmail())));
     }
 
-    // JUnit test for update employee REST API - negative scenario
-    @DisplayName("JUnit test for update employee REST API - negative scenario")
+    // JUnit integration for update employee REST API - negative scenario
+    @DisplayName("JUnit integration for update employee REST API - negative scenario")
     @Test
     public void givenEmployeeObject_whenUpdateEmployee_thenReturnEmpty() throws Exception {
 
         //given - precondition or setup
         Employee updatedEmployee = Employee.builder().firstName("John").lastName("de la Rosa").email("john@example.com").build();
-        given(employeeService.getEmployeeById(1L)).willReturn(Optional.empty());
 
         //when - action or the behaviour that we are going test
         ResultActions response = mockMvc.perform(put("/api/employees/{id}", 1L)
@@ -166,16 +167,15 @@ public class EmployeeControllerTest {
         response.andDo(print()).andExpect(status().isNotFound());
     }
 
-    // JUnit test for delete employee REST API
-    @DisplayName("JUnit test for delete employee REST API")
+    // JUnit integration test for delete employee REST API
+    @DisplayName("JUnit integration test for delete employee REST API")
     @Test
     public void givenEmployeeId_whenDeleteEmployee_thenReturnOkStatus() throws Exception {
 
         //given - precondition or setup
-        willDoNothing().given(employeeService).deleteEmployee(1L);
-
+        employeeRepository.save(employee1);
         //when - action or the behaviour that we are going test
-        ResultActions response =  mockMvc.perform(delete("/api/employees/{id}", 1L));
+        ResultActions response =  mockMvc.perform(delete("/api/employees/{id}", employee1.getId()));
 
         //then - verify the output
         response.andDo(print()).andExpect(status().isOk());
